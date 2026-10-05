@@ -1,0 +1,544 @@
+#!/usr/bin/env python3
+"""Inventory every URL of an existing website before migrating it to Tischlein.
+
+Usage:
+    python3 crawl-site.py https://www.example-restaurant.de [--max-pages 500] [--out urls.json] [--render]
+
+Strategy:
+1. Sitemaps first: every `Sitemap:` entry of robots.txt, otherwise /sitemap.xml and /sitemap_index.xml
+   (sitemap indexes and gzip-compressed sitemaps are followed; only the page `<loc>` of each `<url>` counts,
+   never the `<image:loc>` of Yoast/Google image sitemaps).
+2. Without a sitemap, or with fewer than 3 URLs in it (typical for one-pagers and JS sites), crawl same-host links
+   from the start page: robots.txt is respected, requests are rate-limited (--delay), redirects are followed and the
+   final URL + status recorded. Linked PDFs and images on the same host are inventoried too. Tracking parameters
+   (utm_*, gclid, fbclid, ...) are dropped.
+3. `--render` additionally opens the start page and the crawled HTML pages in headless Chrome (python `playwright`,
+   else the `agent-browser` CLI) to read links that JavaScript builds (Readymag, Wix, Squarespace, SPAs). Without a
+   renderer the script says how to install one and carries on with the static HTML.
+
+External targets (other hosts) are listed separately under `external`: PDFs (also Google Drive/Docs and Dropbox
+files), ticket shops, reservation tools, delivery platforms and shops. Problems are collected under `warnings`
+(robots.txt/sitemap.xml answering non-200 or HTML, tiny sitemaps, JS-only pages) and printed at the end.
+
+Writes the inventory as JSON (url, final_url, status, content_type, title, canonical, lastmod) and a
+sitemap.xml of the reachable HTML pages next to it. Python 3.9+, standard library only (`--render` needs playwright
+or agent-browser).
+"""
+
+from __future__ import annotations
+
+import argparse
+import gzip
+import json
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+import urllib.robotparser
+from collections import deque
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import parse_qsl, urldefrag, urlencode, urljoin, urlsplit, urlunsplit
+from xml.sax.saxutils import escape
+
+USER_AGENT = "TischleinMigrationCrawler/1.0 (+https://tischlein.ai)"
+TRACKING_PREFIXES = ("utm_",)
+TRACKING_PARAMS = {"gclid", "fbclid", "msclkid", "dclid", "mc_cid", "mc_eid", "_ga", "_gl", "igshid", "yclid"}
+ASSET_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg")
+SKIP_SCHEMES = ("mailto:", "tel:", "javascript:", "data:", "whatsapp:")
+MAX_SITEMAPS = 50
+MIN_SITEMAP_URLS = 3
+SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
+HTML_TYPES = ("text/html", "application/xhtml+xml")
+
+# External targets worth migrating or linking: kind -> host fragments (matched on the host, www. stripped).
+EXTERNAL_HOSTS = {
+    "ticket": ("eventim.", "reservix.", "ticketmaster.", "eventbrite.", "tickettailor.", "ticket.io", "tickets.", "ticket-", "adticket.", "pretix.", "xing-events.", "billetto.", "yourticket", "starticket."),
+    "reservation": ("opentable.", "resy.", "quandoo.", "tablein.", "resmio.", "formitable.", "thefork.", "bookatable.", "aleno.", "gastrofix.", "dish.co", "tock.", "bookingkit.", "ayce.io", "orderbird.", "teburio.", "seatme.", "zenchef.", "getresa."),
+    "delivery": ("lieferando.", "wolt.", "ubereats.", "foodora.", "pizza.de", "lieferheld."),
+    "shop": ("shopify.", "myshopify.", "shop.", "stores.", "etsy.", "gutscheinbuch.", "yovite."),
+}
+RESERVATION_PATH_WORDS = ("reservation", "reservierung", "tischreservierung")
+FILE_HOSTS = ("drive.google.com", "docs.google.com", "dropbox.com", "dl.dropboxusercontent.com", "onedrive.live.com", "1drv.ms", "wetransfer.com", "we.tl", "issuu.com", "yumpu.com", "flipsnack.com", "calameo.com")
+
+
+def normalize_url(url: str) -> str:
+    """Drop fragments and tracking parameters, lowercase scheme and host, sort the remaining query."""
+    url, _fragment = urldefrag(url.strip())
+    parts = urlsplit(url)
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if key.lower() not in TRACKING_PARAMS and not key.lower().startswith(TRACKING_PREFIXES)
+    ]
+    path = parts.path or "/"
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, urlencode(sorted(query)), ""))
+
+
+def host_key(url: str) -> str:
+    """Host (with port) without a leading www., so www and apex count as the same site."""
+    netloc = urlsplit(url).netloc.lower()
+    return netloc[4:] if netloc.startswith("www.") else netloc
+
+
+def is_asset(url: str) -> bool:
+    return urlsplit(url).path.lower().endswith(ASSET_EXTENSIONS)
+
+
+class PageParser(HTMLParser):
+    """Collects the title, the canonical link and every href/src of one HTML page."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.title = ""
+        self.canonical = ""
+        self.links: list[str] = []
+        self._in_title = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = {name.lower(): (value or "") for name, value in attrs}
+        if tag == "title":
+            self._in_title = True
+        elif tag == "link" and "canonical" in attributes.get("rel", "").lower().split():
+            self.canonical = attributes.get("href", "")
+        elif tag in ("a", "area") and attributes.get("href"):
+            self.links.append(attributes["href"])
+        elif tag in ("img", "source", "embed", "iframe") and attributes.get("src"):
+            self.links.append(attributes["src"])
+        elif tag == "object" and attributes.get("data"):
+            self.links.append(attributes["data"])
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self._in_title = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self.title += data
+
+
+class SitemapParser(HTMLParser):
+    """Reads <urlset> and <sitemapindex> documents with XML namespaces resolved by hand.
+
+    HTMLParser instead of ElementTree: not every Python build ships expat, and it tolerates sloppy XML. Only the
+    `<loc>` / `<lastmod>` that are direct children of `<url>` / `<sitemap>` in the sitemap namespace (or without one)
+    count: `<image:loc>`, `<video:content_loc>` and `<xhtml:link>` of Yoast/Google extension sitemaps never leak into the URL.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.kind = ""
+        self.urls: list[dict] = []
+        self.sitemaps: list[str] = []
+        self._stack: list[tuple[bool, str, dict]] = []  # (is sitemap namespace, local name, prefix -> namespace)
+        self._entry: dict = {}
+        self._field = ""
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        scope = dict(self._stack[-1][2]) if self._stack else {}
+        for name, value in attrs:
+            if name == "xmlns":
+                scope[""] = value or ""
+            elif name.startswith("xmlns:"):
+                scope[name[6:]] = value or ""
+        prefix, _, local = tag.rpartition(":")
+        namespace = scope.get(prefix) if prefix else scope.get("", "")
+        ours = namespace in (SITEMAP_NS, "")
+        parent_is_entry = bool(self._stack) and len(self._stack) == 2 and self._stack[-1][0] and self._stack[-1][1] in ("url", "sitemap")
+        self._stack.append((ours, local, scope))
+
+        if len(self._stack) == 1:
+            if ours and local in ("urlset", "sitemapindex"):
+                self.kind = local
+        elif ours and self.kind and len(self._stack) == 2 and local in ("url", "sitemap"):
+            self._entry = {"loc": "", "lastmod": ""}
+        elif ours and parent_is_entry and local in ("loc", "lastmod"):
+            self._field = local
+
+    def handle_endtag(self, tag: str) -> None:
+        if not self._stack:
+            return
+        ours, local, _scope = self._stack.pop()
+        if self._field and local == self._field:
+            self._field = ""
+        elif ours and len(self._stack) == 1 and local in ("url", "sitemap") and self._entry.get("loc"):
+            if local == "url":
+                self.urls.append({"url": self._entry["loc"].strip(), "lastmod": self._entry["lastmod"].strip()[:10]})
+            else:
+                self.sitemaps.append(self._entry["loc"].strip())
+            self._entry = {}
+
+    def handle_data(self, data: str) -> None:
+        if self._field:
+            self._entry[self._field] = self._entry.get(self._field, "") + data
+
+    def unknown_decl(self, data: str) -> None:  # <![CDATA[ ... ]]>
+        if self._field and data.upper().startswith("CDATA["):
+            self._entry[self._field] = self._entry.get(self._field, "") + data[6:]
+
+
+def parse_sitemap_xml(body: bytes) -> tuple[str, list[dict], list[str]]:
+    """(kind, page entries, child sitemap URLs) of a `<urlset>` or `<sitemapindex>`; kind is "" when it is neither."""
+    parser = SitemapParser()
+    parser.feed(body.decode("utf-8", errors="replace"))
+    parser.close()
+    return parser.kind, parser.urls, parser.sitemaps
+
+
+class Fetcher:
+    """Rate-limited HTTP client that follows redirects and never raises for HTTP status codes."""
+
+    def __init__(self, delay: float, timeout: float, user_agent: str) -> None:
+        self.delay = delay
+        self.timeout = timeout
+        self.user_agent = user_agent
+        self._last_request = 0.0
+
+    def get(self, url: str, method: str = "GET") -> dict:
+        wait = self._last_request + self.delay - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        self._last_request = time.monotonic()
+
+        request = urllib.request.Request(url, method=method, headers={"User-Agent": self.user_agent, "Accept-Encoding": "identity"})
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                body = response.read() if method == "GET" else b""
+                return {"status": response.status, "final_url": response.geturl(), "headers": response.headers, "body": body}
+        except urllib.error.HTTPError as error:
+            return {"status": error.code, "final_url": error.geturl() or url, "headers": error.headers, "body": b""}
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            reason = getattr(error, "reason", error)
+            return {"status": 0, "final_url": url, "headers": {}, "body": b"", "error": str(reason)}
+
+
+def decode_body(body: bytes, headers) -> str:
+    charset = "utf-8"
+    content_type = headers.get("Content-Type", "") if headers else ""
+    if "charset=" in content_type:
+        charset = content_type.split("charset=")[-1].split(";")[0].strip() or "utf-8"
+    try:
+        return body.decode(charset, errors="replace")
+    except LookupError:
+        return body.decode("utf-8", errors="replace")
+
+
+def last_modified(headers) -> str:
+    value = headers.get("Last-Modified") if headers else None
+    if not value:
+        return ""
+    try:
+        return parsedate_to_datetime(value).astimezone(timezone.utc).date().isoformat()
+    except (TypeError, ValueError):
+        return ""
+
+
+def looks_like_html(body: bytes, headers) -> bool:
+    content_type = (headers.get("Content-Type", "") if headers else "").lower()
+    head = body[:512].lstrip().lower()
+    return "html" in content_type or head.startswith((b"<!doctype html", b"<html", b"<head", b"<body"))
+
+
+def load_robots(fetcher: Fetcher, base: str, warnings: list[str]) -> tuple[urllib.robotparser.RobotFileParser, list[str]]:
+    robots_url = urljoin(base, "/robots.txt")
+    parser = urllib.robotparser.RobotFileParser(robots_url)
+    result = fetcher.get(robots_url)
+    lines: list[str] = []
+    if result["status"] != 200:
+        warnings.append(f"robots.txt answered {result['status'] or result.get('error', 'no response')} ({robots_url}): no crawl rules and no Sitemap line known, everything is treated as allowed.")
+    elif looks_like_html(result["body"], result["headers"]):
+        warnings.append(f"robots.txt returned HTML instead of text ({robots_url}): probably a catch-all page of the site, ignored.")
+    else:
+        lines = decode_body(result["body"], result["headers"]).splitlines()
+    parser.parse(lines)
+    sitemaps = [line.split(":", 1)[1].strip() for line in lines if line.lower().startswith("sitemap:")]
+    return parser, sitemaps
+
+
+def parse_sitemap(fetcher: Fetcher, url: str, seen: set[str], warnings: list[str]) -> list[dict]:
+    """Entries ({url, lastmod}) of a sitemap, following sitemap indexes; [] (plus a warning) when it is missing or invalid."""
+    if url in seen or len(seen) >= MAX_SITEMAPS:
+        return []
+    seen.add(url)
+    result = fetcher.get(url)
+    if result["status"] != 200:
+        warnings.append(f"Sitemap {url} answered {result['status'] or result.get('error', 'no response')}.")
+        return []
+    body = result["body"]
+    if body[:2] == b"\x1f\x8b":
+        try:
+            body = gzip.decompress(body)
+        except OSError:
+            warnings.append(f"Sitemap {url} is not valid gzip.")
+            return []
+    kind, urls, sitemaps = parse_sitemap_xml(body)
+    if not kind:
+        what = "HTML (a catch-all or error page)" if looks_like_html(body, result["headers"]) else "something that is not a sitemap (no <urlset> or <sitemapindex>)"
+        warnings.append(f"Sitemap {url} returned {what}.")
+        return []
+    entries = list(urls)
+    for location in sitemaps:
+        entries.extend(parse_sitemap(fetcher, location, seen, warnings))
+    return entries
+
+
+def inspect(fetcher: Fetcher, url: str, lastmod: str = "") -> tuple[dict, list[str]]:
+    """Fetches one URL and returns its inventory record plus the links found on it (HTML only)."""
+    asset = is_asset(url)
+    result = fetcher.get(url, method="HEAD" if asset else "GET")
+    if asset and result["status"] in (405, 501):
+        result = fetcher.get(url)
+    headers = result["headers"] or {}
+    content_type = (headers.get("Content-Type", "") or "").split(";")[0].strip()
+    record = {
+        "url": url,
+        "final_url": normalize_url(result["final_url"]),
+        "status": result["status"],
+        "content_type": content_type,
+        "title": "",
+        "canonical": "",
+        "lastmod": lastmod or last_modified(headers),
+    }
+    if "error" in result:
+        record["error"] = result["error"]
+    links: list[str] = []
+    if content_type in ("text/html", "application/xhtml+xml") and result["body"]:
+        parser = PageParser()
+        parser.feed(decode_body(result["body"], headers))
+        record["title"] = " ".join(parser.title.split())
+        record["canonical"] = urljoin(result["final_url"], parser.canonical) if parser.canonical else ""
+        links = [urljoin(result["final_url"], link) for link in parser.links]
+    return record, links
+
+
+def classify_external(url: str) -> str:
+    """Kind of an other-host target worth listing ("pdf", "ticket", "reservation", "delivery", "shop"), else ""."""
+    parts = urlsplit(url)
+    host = parts.netloc.lower()
+    host = host[4:] if host.startswith("www.") else host
+    path = parts.path.lower()
+    if path.endswith(".pdf") or any(host == h or host.endswith("." + h) for h in FILE_HOSTS):
+        return "pdf"
+    for kind, fragments in EXTERNAL_HOSTS.items():
+        if any(fragment in host for fragment in fragments):
+            return kind
+    if any(word in path for word in RESERVATION_PATH_WORDS):
+        return "reservation"
+    return ""
+
+
+RENDER_HINT = (
+    "--render needs a headless browser and none was found. Install one of: `pip install playwright && playwright install chromium`, "
+    "or `npm i -g agent-browser && agent-browser install`. Continuing with the static HTML only."
+)
+LINK_COLLECTOR_JS = (
+    "[...document.querySelectorAll('a[href],area[href],iframe[src],embed[src],object[data],source[src]')]"
+    ".map(e=>e.href||e.src||e.data).filter(Boolean)"
+)
+
+
+def find_renderer():
+    """A function url -> rendered link URLs (None on failure), or None when no headless Chrome is available."""
+    try:
+        import playwright.sync_api  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        return render_links_playwright
+    if shutil.which("agent-browser"):
+        return render_links_agent_browser
+    return None
+
+
+def render_links_playwright(url: str, timeout: float = 20.0) -> list[str] | None:
+    from playwright.sync_api import sync_playwright
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(user_agent=USER_AGENT)
+                page.goto(url, wait_until="networkidle", timeout=int(timeout * 1000))
+                page.wait_for_timeout(1000)
+                return [link for link in page.evaluate(LINK_COLLECTOR_JS) if isinstance(link, str)]
+            finally:
+                browser.close()
+    except Exception:  # noqa: BLE001 - a failing render must never abort the inventory
+        return None
+
+
+def render_links_agent_browser(url: str, timeout: float = 45.0) -> list[str] | None:
+    def run(*args: str) -> str:
+        return subprocess.run(["agent-browser", *args], capture_output=True, text=True, timeout=timeout, check=True).stdout.strip()
+
+    try:
+        run("open", url)
+        try:
+            run("wait", "--load", "networkidle")
+        except (subprocess.SubprocessError, OSError):
+            run("wait", "2000")
+        value = json.loads(run("eval", f"JSON.stringify({LINK_COLLECTOR_JS})"))
+        if isinstance(value, str):
+            value = json.loads(value)
+        return [link for link in value if isinstance(link, str)]
+    except (subprocess.SubprocessError, OSError, ValueError):
+        return None
+    finally:
+        try:
+            run("close")
+        except (subprocess.SubprocessError, OSError):
+            pass
+
+
+def crawl(start: str, max_pages: int, fetcher: Fetcher, log=print, render: bool = False, render_limit: int = 20, renderer=None) -> dict:
+    start = normalize_url(start)
+    site = host_key(start)
+    warnings: list[str] = []
+    robots, sitemap_urls = load_robots(fetcher, start, warnings)
+    if not sitemap_urls:
+        sitemap_urls = [urljoin(start, "/sitemap.xml"), urljoin(start, "/sitemap_index.xml")]
+
+    seen_sitemaps: set[str] = set()
+    sitemap_entries: list[dict] = []
+    for sitemap_url in sitemap_urls:
+        sitemap_entries.extend(parse_sitemap(fetcher, sitemap_url, seen_sitemaps, warnings))
+        if sitemap_entries:
+            break
+
+    sitemap_pages: dict[str, str] = {}
+    for entry in sitemap_entries:
+        sitemap_pages.setdefault(normalize_url(entry["url"]), entry["lastmod"])
+
+    follow_links = len(sitemap_pages) < MIN_SITEMAP_URLS
+    if sitemap_pages and follow_links:
+        warnings.append(f"The sitemap lists only {len(sitemap_pages)} URL(s) (fewer than {MIN_SITEMAP_URLS}): also crawling links from the start page.")
+        source = "sitemap+crawl"
+    else:
+        source = "sitemap" if sitemap_pages else "crawl"
+
+    if render:
+        renderer = renderer or find_renderer()
+        if renderer is None:
+            warnings.append(RENDER_HINT)
+            log(RENDER_HINT)
+
+    records: list[dict] = []
+    external: dict[str, dict] = {}
+    queue: deque[str] = deque(sitemap_pages)
+    if follow_links and start not in sitemap_pages:
+        queue.append(start)
+    queued = set(queue)
+    rendered = 0
+
+    def enqueue(links: list[str], found_on: str, how: str) -> None:
+        for link in links:
+            if link.lower().startswith(SKIP_SCHEMES):
+                continue
+            link = normalize_url(link)
+            if urlsplit(link).scheme not in ("http", "https"):
+                continue
+            if host_key(link) != site:
+                kind = classify_external(link)
+                if kind and link not in external:
+                    external[link] = {"url": link, "kind": kind, "host": urlsplit(link).netloc.lower(), "found_on": found_on, "via": how}
+            elif follow_links and link not in queued:
+                queued.add(link)
+                queue.append(link)
+
+    while queue and len(records) < max_pages:
+        url = queue.popleft()
+        if not robots.can_fetch(fetcher.user_agent, url):
+            records.append({"url": url, "final_url": url, "status": None, "content_type": "", "title": "", "canonical": "", "lastmod": "", "error": "disallowed by robots.txt"})
+            continue
+        record, links = inspect(fetcher, url, sitemap_pages.get(url, ""))
+        records.append(record)
+        log(f"{record['status']} {url}")
+        if host_key(record["final_url"]) != site:
+            continue
+        if follow_links and record["final_url"] not in queued:
+            queued.add(record["final_url"])
+            queue.append(record["final_url"])
+        enqueue(links, record["final_url"], "html")
+        if renderer is not None and record["content_type"] in HTML_TYPES and rendered < render_limit:
+            rendered += 1
+            rendered_links = renderer(record["final_url"])
+            if rendered_links is None:
+                warnings.append(f"Rendering {record['final_url']} failed; static links only.")
+            else:
+                enqueue(rendered_links, record["final_url"], "render")
+
+    if not render and len(records) <= 1 and not external:
+        warnings.append("Only one URL was found and it links nowhere: the site is probably built with JavaScript (Readymag, Wix, SPA). Retry with --render.")
+
+    return {
+        "site": start,
+        "source": source,
+        "rendered": render and renderer is not None,
+        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "count": len(records),
+        "pages": records,
+        "external": sorted(external.values(), key=lambda item: (item["kind"], item["url"])),
+        "warnings": warnings,
+    }
+
+
+def sitemap_xml(inventory: dict) -> str:
+    """A sitemap of the reachable HTML pages (status 200, not redirected), sorted."""
+    pages = sorted(
+        {page["final_url"]: page for page in inventory["pages"]
+         if page["status"] == 200 and page["content_type"] in ("text/html", "application/xhtml+xml")
+         and normalize_url(page["url"]) == page["final_url"]}.values(),
+        key=lambda page: page["final_url"],
+    )
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for page in pages:
+        lastmod = f"<lastmod>{escape(page['lastmod'])}</lastmod>" if page["lastmod"] else ""
+        lines.append(f"  <url><loc>{escape(page['final_url'])}</loc>{lastmod}</url>")
+    lines.append("</urlset>")
+    return "\n".join(lines) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Inventory every URL of a website (sitemap first, then crawl).")
+    parser.add_argument("url", help="Start URL, e.g. https://www.example.de")
+    parser.add_argument("--max-pages", type=int, default=500, help="Maximum number of URLs to inspect (default 500)")
+    parser.add_argument("--out", default="urls.json", help="JSON inventory path (default urls.json)")
+    parser.add_argument("--sitemap-out", default=None, help="Generated sitemap path (default: sitemap.xml next to --out)")
+    parser.add_argument("--delay", type=float, default=0.5, help="Seconds between requests (default 0.5)")
+    parser.add_argument("--timeout", type=float, default=15.0, help="Request timeout in seconds (default 15)")
+    parser.add_argument("--user-agent", default=USER_AGENT)
+    parser.add_argument("--render", action="store_true", help="Also read links built by JavaScript with headless Chrome (playwright or agent-browser)")
+    parser.add_argument("--render-pages", type=int, default=20, help="Maximum number of pages to render with --render (default 20)")
+    parser.add_argument("--quiet", action="store_true", help="Only print the summary")
+    args = parser.parse_args(argv)
+
+    if urlsplit(args.url).scheme not in ("http", "https"):
+        parser.error("url must start with http:// or https://")
+
+    fetcher = Fetcher(delay=args.delay, timeout=args.timeout, user_agent=args.user_agent)
+    log = (lambda _message: None) if args.quiet else (lambda message: print(message, file=sys.stderr))
+    inventory = crawl(args.url, args.max_pages, fetcher, log, render=args.render, render_limit=args.render_pages)
+
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(inventory, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    sitemap_path = Path(args.sitemap_out) if args.sitemap_out else out.with_name("sitemap.xml")
+    sitemap_path.write_text(sitemap_xml(inventory), encoding="utf-8")
+
+    broken = sum(1 for page in inventory["pages"] if not page["status"] or page["status"] >= 400)
+    print(f"{inventory['count']} URLs from {inventory['source']} → {out} and {sitemap_path} ({broken} broken)")
+    if inventory["external"]:
+        print(f"External targets ({len(inventory['external'])}):")
+        for item in inventory["external"]:
+            print(f"  [{item['kind']}] {item['url']}  (on {item['found_on']})")
+    for warning in inventory["warnings"]:
+        print(f"WARNING: {warning}", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

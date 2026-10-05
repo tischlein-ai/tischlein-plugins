@@ -1,0 +1,20 @@
+{
+    "name": "tischlein",
+    "interface": {
+        "displayName": "Tischlein"
+    },
+    "plugins": [
+        {
+            "name": "tischlein",
+            "source": {
+                "source": "local",
+                "path": "./plugins/tischlein"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Business"
+        }
+    ]
+}
