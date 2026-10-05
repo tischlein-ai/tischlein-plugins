@@ -8,7 +8,7 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the Tischlein app (CI publishes on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.24.0**
+Version: **1.25.0**
 
 ## Skills
 
