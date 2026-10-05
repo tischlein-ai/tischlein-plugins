@@ -8,7 +8,7 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the Tischlein app (CI publishes on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.25.0**
+Version: **1.26.0**
 
 ## Skills
 
@@ -26,6 +26,7 @@ Version: **1.25.0**
 | `plan-shifts` | `plan-shifts` | available |
 | `purchasing` | `purchasing` | available |
 | `sell-vouchers-and-tickets` | `sell-vouchers-and-tickets` | available |
+| `send-feedback` | `send-feedback` | available |
 | `setup-event-location` | `setup-event-location` | available |
 | `suggest-landing-pages` | `suggest-landing-pages` | available |
 | `theme-authoring` | `theme-authoring` | available |
