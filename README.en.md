@@ -6,9 +6,9 @@
 
 This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bundles the Tischlein MCP server (`https://tischlein.pro/mcp`) and **skills** that activate on natural phrases ("import our menu from this PDF"). The skills here are **stubs** only: description and trigger phrases. The actual playbook is served live by the server through the MCP tool `get-guidance`, so it is current after every Tischlein deploy without reinstalling the plugin.
 
-> ⚠️ **Generated.** This repository is generated from the Tischlein app (CI publishes on every merge to `main`). Manual edits are overwritten.
+> ⚠️ **Generated.** This repository is generated from the Tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.26.0**
+Version: **1.27.1**
 
 ## Skills
 
@@ -19,6 +19,7 @@ Version: **1.26.0**
 | `audit-allergens` | `audit-allergens` | available |
 | `capture-applicant` | `capture-applicant` | available |
 | `daily-specials` | `daily-specials` | available |
+| `go-live` | `go-live` | available |
 | `import-menu-from-pdf` | `import-menu-from-pdf` | available |
 | `migrate-website` | `migrate-website` | available |
 | `month-close` | `month-close` | available |

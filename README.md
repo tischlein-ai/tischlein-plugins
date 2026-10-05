@@ -6,9 +6,9 @@
 
 Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein` bringt den Tischlein-MCP-Server (`https://tischlein.pro/mcp`) und **Skills** mit, die auf natürliche Sätze reagieren („Importiere unsere Speisekarte aus diesem PDF“). Die Skills hier sind nur **Stubs**: Beschreibung und Auslöser-Phrasen. Die eigentliche Anleitung liefert der Server live über das MCP-Tool `get-guidance` – sie ist also nach jedem Tischlein-Deploy aktuell, ohne das Plugin neu zu installieren.
 
-> ⚠️ **Generiert.** Dieses Repository wird automatisch aus der Tischlein-App erzeugt (CI veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
+> ⚠️ **Generiert.** Dieses Repository wird automatisch aus der Tischlein-App erzeugt (veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.26.0**
+Version: **1.27.1**
 
 ## Skills
 
@@ -19,6 +19,7 @@ Version: **1.26.0**
 | `audit-allergens` | `audit-allergens` | verfügbar |
 | `capture-applicant` | `capture-applicant` | verfügbar |
 | `daily-specials` | `daily-specials` | verfügbar |
+| `go-live` | `go-live` | verfügbar |
 | `import-menu-from-pdf` | `import-menu-from-pdf` | verfügbar |
 | `migrate-website` | `migrate-website` | verfügbar |
 | `month-close` | `month-close` | verfügbar |
