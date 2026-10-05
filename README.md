@@ -6,9 +6,9 @@
 
 Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein` bringt den Tischlein-MCP-Server (`https://tischlein.pro/mcp`) und **Skills** mit, die auf natürliche Sätze reagieren („Importiere unsere Speisekarte aus diesem PDF“). Die Skills hier sind nur **Stubs**: Beschreibung und Auslöser-Phrasen. Die eigentliche Anleitung liefert der Server live über das MCP-Tool `get-guidance` – sie ist also nach jedem Tischlein-Deploy aktuell, ohne das Plugin neu zu installieren.
 
-> ⚠️ **Generiert.** Dieses Repository wird automatisch aus der Tischlein-App erzeugt (CI veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben – siehe [GENERATED.md](GENERATED.md).
+> ⚠️ **Generiert.** Dieses Repository wird automatisch aus der Tischlein-App erzeugt (CI veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.21.0**
+Version: **1.22.0**
 
 ## Skills
 
@@ -38,16 +38,16 @@ Solange eine Anleitung noch nicht veröffentlicht ist, antwortet `get-guidance` 
 
 ## Installation
 
-### Claude Code
+### Claude Desktop und Claude Code (empfohlen: gehosteter Marketplace)
 
 ```
-/plugin marketplace add tischlein-ai/tischlein-plugins
+/plugin marketplace add https://tischlein.pro/plugins/marketplace.json
 /plugin install tischlein@tischlein
 ```
 
-Danach `/mcp` → **tischlein** → im Browser bei Tischlein anmelden (OAuth). Beim ersten Tool-Aufruf fragt Claude Code ohnehin danach. Das Repository ist derzeit **privat** – Ihr GitHub-Zugang muss Leserechte haben.
+Alternativ über GitHub: `/plugin marketplace add tischlein-ai/tischlein-plugins`.
 
-Ohne GitHub-Zugang funktioniert derselbe Marketplace direkt vom Tischlein-Server: `/plugin marketplace add https://tischlein.ai/plugins/marketplace.json`.
+Die Anmeldung beim Connector läuft in einer Claude-Code-Sitzung über `/mcp` → **tischlein** → **Authenticate**: im Browser bei Tischlein anmelden und den 6-stelligen Code eingeben. In Claude im Chat geht es stattdessen über einen benutzerdefinierten Connector (siehe unten). Beim ersten Tool-Aufruf fragt Claude Code ohnehin danach.
 
 Aktualisieren: `/plugin marketplace update tischlein`, dann `/plugin update tischlein@tischlein`.
 
@@ -65,7 +65,6 @@ Anmeldung per OAuth. Alle Tools stehen dann bereit; die Anleitungen holt sich Cl
 
 - **ChatGPT:** Einstellungen → Apps & Connectors → (Entwicklermodus) → Connector anlegen mit der URL `https://tischlein.pro/mcp`, Authentifizierung OAuth.
 - **Codex:** `codex plugin marketplace add tischlein-ai/tischlein-plugins`, dann `codex plugin add tischlein@tischlein` und `codex mcp login tischlein`. Ohne Plugin: `codex mcp add tischlein --url https://tischlein.pro/mcp`.
-
 
 ## Sicherheit
 
