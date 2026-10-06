@@ -20,8 +20,12 @@ External targets (other hosts) are listed separately under `external`: PDFs (als
 files), ticket shops, reservation tools, delivery platforms and shops. Problems are collected under `warnings`
 (robots.txt/sitemap.xml answering non-200 or HTML, tiny sitemaps, JS-only pages) and printed at the end.
 
+Non-ASCII URLs (IRIs such as /über-uns, IDN hosts such as müller-gasthaus.de) are requested as ASCII URIs (IDNA host,
+UTF-8 percent-encoding, existing %XX escapes kept). The inventory reports one readable canonical form per page
+(punycode host, "/über-uns"; "/%C3%BCber-uns" is the same page), which import-redirects accepts as `from`.
+
 Writes the inventory as JSON (url, final_url, status, content_type, title, canonical, lastmod) and a
-sitemap.xml of the reachable HTML pages next to it. Python 3.9+, standard library only (`--render` needs playwright
+sitemap.xml of the reachable HTML pages next to it (percent-encoded `<loc>`, as the sitemap protocol requires). Python 3.9+, standard library only (`--render` needs playwright
 or agent-browser).
 """
 
@@ -30,6 +34,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -42,7 +47,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import parse_qsl, urldefrag, urlencode, urljoin, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urldefrag, urlencode, urljoin, urlsplit, urlunsplit
 from xml.sax.saxutils import escape
 
 USER_AGENT = "TischleinMigrationCrawler/1.0 (+https://tischlein.ai)"
@@ -66,22 +71,117 @@ RESERVATION_PATH_WORDS = ("reservation", "reservierung", "tischreservierung")
 FILE_HOSTS = ("drive.google.com", "docs.google.com", "dropbox.com", "dl.dropboxusercontent.com", "onedrive.live.com", "1drv.ms", "wetransfer.com", "we.tl", "issuu.com", "yumpu.com", "flipsnack.com", "calameo.com")
 
 
+# --- IRI → URI (kept identical in crawl-site.py and verify-redirects.py; tests/Python checks both) ---------------------
+UNRESERVED = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+STRAY_PERCENT = re.compile(r"%(?![0-9A-Fa-f]{2})")
+ESCAPE_RUN = re.compile(r"(?:%[0-9A-Fa-f]{2})+")
+PATH_SAFE = "/;:@!$&'()*+,="
+QUERY_SAFE = PATH_SAFE + "?"
+
+
+def _quote_component(value: str, safe: str) -> str:
+    """Percent-encodes everything outside `safe` as UTF-8; existing %XX escapes are kept (hex uppercased), a stray % becomes %25."""
+    quoted = quote(STRAY_PERCENT.sub("%25", value), safe=safe + "%")
+    return ESCAPE_RUN.sub(lambda match: match.group(0).upper(), quoted)
+
+
+def _ascii_host(host: str) -> str:
+    """IDNA (punycode) form of a host name, lowercase: müller-gasthaus.de → xn--mller-gasthaus-gsb.de."""
+    host = host.lower()
+    if host.isascii():
+        return host
+    labels = host.replace("。", ".").replace("．", ".").replace("｡", ".").split(".")
+    try:
+        return ".".join(label if label.isascii() else label.encode("idna").decode("ascii") for label in labels)
+    except UnicodeError:
+        return quote(host, safe=".-")
+
+
+def _ascii_netloc(netloc: str) -> str:
+    userinfo, at, hostport = netloc.rpartition("@")
+    if hostport.startswith("["):  # IPv6 literal, ASCII already
+        host, port = hostport, ""
+    else:
+        host, colon, port = hostport.partition(":")
+        port = colon + port
+    return (_quote_component(userinfo, "!$&'()*+,;=:") + at if at else "") + _ascii_host(host) + port
+
+
+def to_uri(url: str) -> str:
+    """Any IRI as a valid ASCII URI for the request line: IDNA host, UTF-8 percent-encoded path, query and fragment.
+
+    Existing escapes are never encoded twice ("/das-men%C3%BC" stays, "/das-menü" becomes "/das-men%C3%BC").
+    Raises ValueError for unparsable URLs (e.g. a broken IPv6 literal).
+    """
+    parts = urlsplit(url.strip())
+    return urlunsplit((
+        parts.scheme,
+        _ascii_netloc(parts.netloc),
+        _quote_component(parts.path, PATH_SAFE),
+        _quote_component(parts.query, QUERY_SAFE),
+        _quote_component(parts.fragment, QUERY_SAFE),
+    ))
+
+
+def _readable_escapes(match: re.Match) -> str:
+    data = bytes.fromhex(match.group(0).replace("%", ""))
+    out: list[str] = []
+    index = 0
+    while index < len(data):
+        byte = data[index]
+        size = 1 if byte < 0x80 else 2 if 0xC2 <= byte <= 0xDF else 3 if 0xE0 <= byte <= 0xEF else 4 if 0xF0 <= byte <= 0xF4 else 0
+        try:
+            char = data[index:index + size].decode("utf-8") if size else ""
+        except UnicodeDecodeError:
+            char = ""
+        if char and (char in UNRESERVED or (not char.isascii() and char.isprintable() and not char.isspace())):
+            out.append(char)
+            index += size
+        else:
+            out.append(f"%{byte:02X}")
+            index += 1
+    return "".join(out)
+
+
+def to_iri(url: str) -> str:
+    """Readable canonical form of a URL: ASCII (punycode) host, but UTF-8 escapes of letters decoded ("/%C3%BCber-uns" →
+    "/über-uns"). Reserved characters, spaces, controls and invalid UTF-8 stay percent-encoded, so to_uri(to_iri(u))
+    addresses the same resource; spellings that differ only in escaping get the same form.
+    """
+    parts = urlsplit(to_uri(url))
+    return urlunsplit((parts.scheme, parts.netloc, *(ESCAPE_RUN.sub(_readable_escapes, value) for value in (parts.path, parts.query, parts.fragment))))
+
+
+def header_text(value: str) -> str:
+    """A header value as text: http.client decodes header bytes as Latin-1, so raw UTF-8 in a Location header arrives as
+    mojibake ("/Ã¼ber-uns") and is decoded again; other non-ASCII bytes are percent-encoded byte by byte."""
+    try:
+        return value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return "".join(char if char.isascii() else "".join(f"%{byte:02X}" for byte in char.encode("latin-1", "replace")) for char in value)
+# --- end IRI → URI -------------------------------------------------------------------------------------------------
+
+
 def normalize_url(url: str) -> str:
-    """Drop fragments and tracking parameters, lowercase scheme and host, sort the remaining query."""
+    """Canonical inventory form: no fragment or tracking parameters, lowercase scheme and host, sorted query, IDNA host,
+    and readable escapes (see to_iri), so "/über-uns", "/%C3%BCber-uns" and "/%c3%bcber-uns" are one page.
+
+    import-redirects accepts this form as `from` (it percent-decodes paths); requests always go out as to_uri().
+    """
     url, _fragment = urldefrag(url.strip())
-    parts = urlsplit(url)
+    parts = urlsplit(to_uri(url))
     query = [
         (key, value)
         for key, value in parse_qsl(parts.query, keep_blank_values=True)
         if key.lower() not in TRACKING_PARAMS and not key.lower().startswith(TRACKING_PREFIXES)
     ]
     path = parts.path or "/"
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, urlencode(sorted(query)), ""))
+    return to_iri(urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, urlencode(sorted(query)), "")))
 
 
 def host_key(url: str) -> str:
     """Host (with port) without a leading www., so www and apex count as the same site."""
-    netloc = urlsplit(url).netloc.lower()
+    netloc = _ascii_netloc(urlsplit(url).netloc)
     return netloc[4:] if netloc.startswith("www.") else netloc
 
 
@@ -189,13 +289,31 @@ def parse_sitemap_xml(body: bytes) -> tuple[str, list[dict], list[str]]:
     return parser.kind, parser.urls, parser.sitemaps
 
 
+class IriRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Follows redirects whose Location holds raw UTF-8 bytes or a non-ASCII host by requesting its ASCII URI."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D401 - urllib hook
+        location = headers.get("Location") or headers.get("URI")
+        if location:
+            try:
+                newurl = to_uri(urljoin(req.full_url, header_text(location)))
+            except ValueError:
+                pass
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class Fetcher:
-    """Rate-limited HTTP client that follows redirects and never raises for HTTP status codes."""
+    """Rate-limited HTTP client that follows redirects and never raises for HTTP status codes.
+
+    Every URL (IRIs with umlauts or IDN hosts included) is sent as its ASCII URI (to_uri); http.client would
+    otherwise fail with UnicodeEncodeError on the request line.
+    """
 
     def __init__(self, delay: float, timeout: float, user_agent: str) -> None:
         self.delay = delay
         self.timeout = timeout
         self.user_agent = user_agent
+        self.opener = urllib.request.build_opener(IriRedirectHandler)
         self._last_request = 0.0
 
     def get(self, url: str, method: str = "GET") -> dict:
@@ -204,12 +322,16 @@ class Fetcher:
             time.sleep(wait)
         self._last_request = time.monotonic()
 
-        request = urllib.request.Request(url, method=method, headers={"User-Agent": self.user_agent, "Accept-Encoding": "identity"})
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            request = urllib.request.Request(to_uri(url), method=method, headers={"User-Agent": self.user_agent, "Accept-Encoding": "identity"})
+        except ValueError as error:
+            return {"status": 0, "final_url": url, "headers": {}, "body": b"", "error": f"invalid URL: {error}"}
+        try:
+            with self.opener.open(request, timeout=self.timeout) as response:
                 body = response.read() if method == "GET" else b""
                 return {"status": response.status, "final_url": response.geturl(), "headers": response.headers, "body": body}
         except urllib.error.HTTPError as error:
+            error.close()
             return {"status": error.code, "final_url": error.geturl() or url, "headers": error.headers, "body": b""}
         except (urllib.error.URLError, TimeoutError, OSError) as error:
             reason = getattr(error, "reason", error)
@@ -310,7 +432,10 @@ def inspect(fetcher: Fetcher, url: str, lastmod: str = "") -> tuple[dict, list[s
         parser = PageParser()
         parser.feed(decode_body(result["body"], headers))
         record["title"] = " ".join(parser.title.split())
-        record["canonical"] = urljoin(result["final_url"], parser.canonical) if parser.canonical else ""
+        try:
+            record["canonical"] = to_iri(urljoin(result["final_url"], parser.canonical)) if parser.canonical else ""
+        except ValueError:
+            record["canonical"] = parser.canonical
         links = [urljoin(result["final_url"], link) for link in parser.links]
     return record, links
 
@@ -411,7 +536,10 @@ def crawl(start: str, max_pages: int, fetcher: Fetcher, log=print, render: bool 
 
     sitemap_pages: dict[str, str] = {}
     for entry in sitemap_entries:
-        sitemap_pages.setdefault(normalize_url(entry["url"]), entry["lastmod"])
+        try:
+            sitemap_pages.setdefault(normalize_url(entry["url"]), entry["lastmod"])
+        except ValueError:
+            warnings.append(f"Sitemap entry {entry['url']!r} is not a valid URL, skipped.")
 
     follow_links = len(sitemap_pages) < MIN_SITEMAP_URLS
     if sitemap_pages and follow_links:
@@ -438,7 +566,10 @@ def crawl(start: str, max_pages: int, fetcher: Fetcher, log=print, render: bool 
         for link in links:
             if link.lower().startswith(SKIP_SCHEMES):
                 continue
-            link = normalize_url(link)
+            try:
+                link = normalize_url(link)
+            except ValueError:  # unparsable href such as "http://[broken"
+                continue
             if urlsplit(link).scheme not in ("http", "https"):
                 continue
             if host_key(link) != site:
@@ -451,7 +582,7 @@ def crawl(start: str, max_pages: int, fetcher: Fetcher, log=print, render: bool 
 
     while queue and len(records) < max_pages:
         url = queue.popleft()
-        if not robots.can_fetch(fetcher.user_agent, url):
+        if not robots.can_fetch(fetcher.user_agent, to_uri(url)):
             records.append({"url": url, "final_url": url, "status": None, "content_type": "", "title": "", "canonical": "", "lastmod": "", "error": "disallowed by robots.txt"})
             continue
         record, links = inspect(fetcher, url, sitemap_pages.get(url, ""))
@@ -465,7 +596,7 @@ def crawl(start: str, max_pages: int, fetcher: Fetcher, log=print, render: bool 
         enqueue(links, record["final_url"], "html")
         if renderer is not None and record["content_type"] in HTML_TYPES and rendered < render_limit:
             rendered += 1
-            rendered_links = renderer(record["final_url"])
+            rendered_links = renderer(to_uri(record["final_url"]))
             if rendered_links is None:
                 warnings.append(f"Rendering {record['final_url']} failed; static links only.")
             else:
@@ -487,7 +618,8 @@ def crawl(start: str, max_pages: int, fetcher: Fetcher, log=print, render: bool 
 
 
 def sitemap_xml(inventory: dict) -> str:
-    """A sitemap of the reachable HTML pages (status 200, not redirected), sorted."""
+    """A sitemap of the reachable HTML pages (status 200, not redirected), sorted; `<loc>` percent-encoded as the
+    sitemap protocol requires (import-redirects decodes it, so it matches the readable form in urls.json)."""
     pages = sorted(
         {page["final_url"]: page for page in inventory["pages"]
          if page["status"] == 200 and page["content_type"] in ("text/html", "application/xhtml+xml")
@@ -497,7 +629,7 @@ def sitemap_xml(inventory: dict) -> str:
     lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for page in pages:
         lastmod = f"<lastmod>{escape(page['lastmod'])}</lastmod>" if page["lastmod"] else ""
-        lines.append(f"  <url><loc>{escape(page['final_url'])}</loc>{lastmod}</url>")
+        lines.append(f"  <url><loc>{escape(to_uri(page['final_url']))}</loc>{lastmod}</url>")
     lines.append("</urlset>")
     return "\n".join(lines) + "\n"
 

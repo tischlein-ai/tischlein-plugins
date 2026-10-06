@@ -19,6 +19,9 @@ For every old URL the check expects exactly ONE 301 redirect (max one hop) strai
 and the target must answer 200. An old URL equal to its target must answer 200 itself. Reported problems:
 WRONG_STATUS (e.g. 302 instead of 301), WRONG_TARGET, CHAIN (more than one hop), LOOP, TARGET_NOT_200,
 NOT_REDIRECTED, ERROR (network). Exit code 1 when anything failed. Python 3.9+, standard library only.
+
+URLs may contain umlauts or IDN hosts ("/über-uns", müller-gasthaus.de): they are requested as ASCII URIs (IDNA host,
+UTF-8 percent-encoding, existing %XX escapes kept) and compared regardless of how they are percent-encoded.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import shutil
 import ssl
 import subprocess
@@ -33,11 +37,102 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
 USER_AGENT = "TischleinRedirectCheck/1.0 (+https://tischlein.ai)"
 MAX_HOPS = 10
 DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+# --- IRI → URI (kept identical in crawl-site.py and verify-redirects.py; tests/Python checks both) ---------------------
+UNRESERVED = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+STRAY_PERCENT = re.compile(r"%(?![0-9A-Fa-f]{2})")
+ESCAPE_RUN = re.compile(r"(?:%[0-9A-Fa-f]{2})+")
+PATH_SAFE = "/;:@!$&'()*+,="
+QUERY_SAFE = PATH_SAFE + "?"
+
+
+def _quote_component(value: str, safe: str) -> str:
+    """Percent-encodes everything outside `safe` as UTF-8; existing %XX escapes are kept (hex uppercased), a stray % becomes %25."""
+    quoted = quote(STRAY_PERCENT.sub("%25", value), safe=safe + "%")
+    return ESCAPE_RUN.sub(lambda match: match.group(0).upper(), quoted)
+
+
+def _ascii_host(host: str) -> str:
+    """IDNA (punycode) form of a host name, lowercase: müller-gasthaus.de → xn--mller-gasthaus-gsb.de."""
+    host = host.lower()
+    if host.isascii():
+        return host
+    labels = host.replace("。", ".").replace("．", ".").replace("｡", ".").split(".")
+    try:
+        return ".".join(label if label.isascii() else label.encode("idna").decode("ascii") for label in labels)
+    except UnicodeError:
+        return quote(host, safe=".-")
+
+
+def _ascii_netloc(netloc: str) -> str:
+    userinfo, at, hostport = netloc.rpartition("@")
+    if hostport.startswith("["):  # IPv6 literal, ASCII already
+        host, port = hostport, ""
+    else:
+        host, colon, port = hostport.partition(":")
+        port = colon + port
+    return (_quote_component(userinfo, "!$&'()*+,;=:") + at if at else "") + _ascii_host(host) + port
+
+
+def to_uri(url: str) -> str:
+    """Any IRI as a valid ASCII URI for the request line: IDNA host, UTF-8 percent-encoded path, query and fragment.
+
+    Existing escapes are never encoded twice ("/das-men%C3%BC" stays, "/das-menü" becomes "/das-men%C3%BC").
+    Raises ValueError for unparsable URLs (e.g. a broken IPv6 literal).
+    """
+    parts = urlsplit(url.strip())
+    return urlunsplit((
+        parts.scheme,
+        _ascii_netloc(parts.netloc),
+        _quote_component(parts.path, PATH_SAFE),
+        _quote_component(parts.query, QUERY_SAFE),
+        _quote_component(parts.fragment, QUERY_SAFE),
+    ))
+
+
+def _readable_escapes(match: re.Match) -> str:
+    data = bytes.fromhex(match.group(0).replace("%", ""))
+    out: list[str] = []
+    index = 0
+    while index < len(data):
+        byte = data[index]
+        size = 1 if byte < 0x80 else 2 if 0xC2 <= byte <= 0xDF else 3 if 0xE0 <= byte <= 0xEF else 4 if 0xF0 <= byte <= 0xF4 else 0
+        try:
+            char = data[index:index + size].decode("utf-8") if size else ""
+        except UnicodeDecodeError:
+            char = ""
+        if char and (char in UNRESERVED or (not char.isascii() and char.isprintable() and not char.isspace())):
+            out.append(char)
+            index += size
+        else:
+            out.append(f"%{byte:02X}")
+            index += 1
+    return "".join(out)
+
+
+def to_iri(url: str) -> str:
+    """Readable canonical form of a URL: ASCII (punycode) host, but UTF-8 escapes of letters decoded ("/%C3%BCber-uns" →
+    "/über-uns"). Reserved characters, spaces, controls and invalid UTF-8 stay percent-encoded, so to_uri(to_iri(u))
+    addresses the same resource; spellings that differ only in escaping get the same form.
+    """
+    parts = urlsplit(to_uri(url))
+    return urlunsplit((parts.scheme, parts.netloc, *(ESCAPE_RUN.sub(_readable_escapes, value) for value in (parts.path, parts.query, parts.fragment))))
+
+
+def header_text(value: str) -> str:
+    """A header value as text: http.client decodes header bytes as Latin-1, so raw UTF-8 in a Location header arrives as
+    mojibake ("/Ã¼ber-uns") and is decoded again; other non-ASCII bytes are percent-encoded byte by byte."""
+    try:
+        return value.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return "".join(char if char.isascii() else "".join(f"%{byte:02X}" for byte in char.encode("latin-1", "replace")) for char in value)
+# --- end IRI → URI -------------------------------------------------------------------------------------------------
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -106,8 +201,9 @@ def resolve_reference(target: str, base: str | None, org: str | None, locale: st
 
 
 def canonical(url: str) -> str:
-    """Comparable form: lowercase scheme/host, no default port, "/" for an empty path, no fragment."""
-    parts = urlsplit(url.strip())
+    """Comparable form: lowercase scheme/host (IDNA), no default port, "/" for an empty path, no fragment, escapes
+    normalized (to_iri), so "/das-menü" and "/das-men%C3%BC" compare equal."""
+    parts = urlsplit(to_iri(url))
     host = (parts.hostname or "").lower()
     port = f":{parts.port}" if parts.port and parts.port != DEFAULT_PORTS.get(parts.scheme.lower()) else ""
     return urlunsplit((parts.scheme.lower(), host + port, parts.path or "/", parts.query, ""))
@@ -141,14 +237,19 @@ def load_mapping(path: str, base: str | None, org: str | None = None, locale: st
 
 
 def request(url: str, timeout: float) -> tuple[int, str]:
-    """Status and absolute Location (may be "") of one request without following redirects."""
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    """Status and absolute Location (may be "") of one request without following redirects.
+
+    The URL is sent as its ASCII URI (umlaut paths and IDN hosts included); the Location is returned as an ASCII URI
+    too, also when the server wrote raw UTF-8 bytes into the header.
+    """
+    req = urllib.request.Request(to_uri(url), headers={"User-Agent": USER_AGENT})
     try:
         with OPENER.open(req, timeout=timeout) as response:
             return response.status, ""
     except urllib.error.HTTPError as error:
         location = error.headers.get("Location", "") if error.headers else ""
-        return error.code, urljoin(url, location) if location else ""
+        error.close()
+        return error.code, to_uri(urljoin(req.full_url, header_text(location))) if location else ""
 
 
 def check(old: str, new: str, timeout: float = 15.0) -> dict:
@@ -170,7 +271,7 @@ def check(old: str, new: str, timeout: float = 15.0) -> dict:
                 return result
             seen.add(canonical(url))
             url = location
-    except (urllib.error.URLError, TimeoutError, OSError) as error:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as error:
         result["problem"] = "ERROR"
         result["error"] = error_reason(error)
         return result
