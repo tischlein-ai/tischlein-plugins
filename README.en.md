@@ -8,7 +8,7 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the Tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.35.0**
+Version: **1.36.0**
 
 ## Skills
 
@@ -23,6 +23,7 @@ Version: **1.35.0**
 | `import-menu-from-pdf` | `import-menu-from-pdf` | available |
 | `migrate-website` | `migrate-website` | available |
 | `month-close` | `month-close` | available |
+| `newsletter` | `newsletter` | available |
 | `onboard-restaurant` | `onboard-restaurant` | available |
 | `plan-shifts` | `plan-shifts` | available |
 | `purchasing` | `purchasing` | available |

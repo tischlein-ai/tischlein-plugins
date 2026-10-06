@@ -8,7 +8,7 @@ Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein`
 
 > ⚠️ **Generiert.** Dieses Repository wird automatisch aus der Tischlein-App erzeugt (veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.35.0**
+Version: **1.36.0**
 
 ## Skills
 
@@ -23,6 +23,7 @@ Version: **1.35.0**
 | `import-menu-from-pdf` | `import-menu-from-pdf` | verfügbar |
 | `migrate-website` | `migrate-website` | verfügbar |
 | `month-close` | `month-close` | verfügbar |
+| `newsletter` | `newsletter` | verfügbar |
 | `onboard-restaurant` | `onboard-restaurant` | verfügbar |
 | `plan-shifts` | `plan-shifts` | verfügbar |
 | `purchasing` | `purchasing` | verfügbar |
