@@ -1,7 +1,7 @@
 {
     "name": "tischlein",
     "description": "Tischlein – Website, Speisekarte und Gästeanfragen für Restaurants, Cafés, Bars und Kneipen, gepflegt per Sprache in Claude und ChatGPT. / Website, menus and guest requests for restaurants, cafés and bars, run by talking to Claude or ChatGPT.",
-    "version": "1.37.0",
+    "version": "1.38.0",
     "author": {
         "name": "Tischlein",
         "url": "https://tischlein.ai"
