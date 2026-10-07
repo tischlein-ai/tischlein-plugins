@@ -1,6 +1,6 @@
 ---
 name: newsletter
-description: 'Guest newsletters from the venue''s own domain: set up and verify the sending domain, import guest lists (with or without proof of consent), signup block with double opt-in, write a branded newsletter or one from events, preview, test, send now or schedule, read bounces and costs. Use for "Newsletter", "Rundmail an Stammgäste", "Gästeliste importieren", "Newsletter-Anmeldung auf der Website", "Veranstaltungen per Mail verschicken" or "send a newsletter".'
+description: 'Guest newsletters from the venue''s own domain: book it, set up the sending domain once (or send the records to the web agency), import guest lists (with or without proof of consent), signup block with double opt-in, write a branded newsletter or one from events, preview, test, send now or schedule, read bounces and costs. Use for "Newsletter", "Rundmail an Stammgäste", "Gästeliste importieren", "Newsletter-Anmeldung auf der Website", "Veranstaltungen per Mail verschicken" or "send a newsletter".'
 ---
 
 Call the Tischlein MCP tool `get-guidance` with `topic: "newsletter"` and follow exactly what it returns.
