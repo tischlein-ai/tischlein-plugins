@@ -1,7 +1,7 @@
 {
     "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
     "name": "tischlein",
-    "version": "1.55.0",
+    "version": "1.56.0",
     "description": "Tischlein – Website, Speisekarte und Gästeanfragen für Restaurants, Cafés, Bars und Kneipen, gepflegt per Sprache in Claude und ChatGPT. / Website, menus and guest requests for restaurants, cafés and bars, run by talking to Claude or ChatGPT.",
     "author": {
         "name": "Tischlein",
