@@ -1,19 +1,19 @@
 {
     "name": "tischlein",
-    "description": "Tischlein – plugin for Claude & ChatGPT: skills on top of the Tischlein MCP server",
+    "description": "tischlein – plugin for Claude & ChatGPT: skills on top of the tischlein MCP server",
     "owner": {
-        "name": "Tischlein",
+        "name": "tischlein",
         "url": "https://tischlein.ai"
     },
     "metadata": {
-        "description": "Tischlein – Gastronomie-Websites, Speisekarten und Gästeanfragen per Sprache.",
-        "version": "1.80.0"
+        "description": "tischlein – Gastronomie-Websites, Speisekarten und Gästeanfragen per Sprache.",
+        "version": "1.82.0"
     },
     "plugins": [
         {
             "name": "tischlein",
-            "description": "Tischlein – Website, Speisekarte und Gästeanfragen für Restaurants, Cafés, Bars und Kneipen, gepflegt per Sprache in Claude und ChatGPT. / Website, menus and guest requests for restaurants, cafés and bars, run by talking to Claude or ChatGPT.",
-            "version": "1.80.0",
+            "description": "tischlein – Website, Speisekarte und Gästeanfragen für Restaurants, Cafés, Bars und Kneipen, gepflegt per Sprache in Claude und ChatGPT. / Website, menus and guest requests for restaurants, cafés and bars, run by talking to Claude or ChatGPT.",
+            "version": "1.82.0",
             "source": "./plugins/tischlein",
             "category": "productivity"
         }

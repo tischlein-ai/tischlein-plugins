@@ -1,9 +1,9 @@
 {
     "name": "tischlein",
-    "version": "1.80.0",
-    "description": "Tischlein – Website, Speisekarte und Gästeanfragen für Restaurants, Cafés, Bars und Kneipen, gepflegt per Sprache in Claude und ChatGPT. / Website, menus and guest requests for restaurants, cafés and bars, run by talking to Claude or ChatGPT.",
+    "version": "1.82.0",
+    "description": "tischlein – Website, Speisekarte und Gästeanfragen für Restaurants, Cafés, Bars und Kneipen, gepflegt per Sprache in Claude und ChatGPT. / Website, menus and guest requests for restaurants, cafés and bars, run by talking to Claude or ChatGPT.",
     "author": {
-        "name": "Tischlein"
+        "name": "tischlein"
     },
     "homepage": "https://tischlein.ai",
     "license": "proprietary",
@@ -25,10 +25,10 @@
     "skills": "./skills/",
     "mcpServers": "./.mcp.json",
     "interface": {
-        "displayName": "Tischlein",
+        "displayName": "tischlein",
         "shortDescription": "Website, Speisekarte und Anfragen für die Gastronomie",
-        "longDescription": "Tischlein runs websites, menus and guest requests for restaurants, cafés, bars and Kneipen. There is no admin UI: the assistant is the editor, with a preview before every write.",
-        "developerName": "Tischlein",
+        "longDescription": "tischlein runs websites, menus and guest requests for restaurants, cafés, bars and Kneipen. There is no admin UI: the assistant is the editor, with a preview before every write.",
+        "developerName": "tischlein",
         "category": "Business",
         "capabilities": [
             "Interactive",

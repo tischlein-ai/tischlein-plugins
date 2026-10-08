@@ -1,14 +1,14 @@
-# Tischlein – plugin for Claude & ChatGPT
+# tischlein – plugin for Claude & ChatGPT
 
 🇩🇪 **Deutsche Version: [README.md](README.md)**
 
-**Tischlein** runs websites, menus and guest requests for restaurants, cafés, bars and Kneipen. There is no admin backend: the team manages everything by talking to Claude or ChatGPT, with a preview before every write.
+**tischlein** runs websites, menus and guest requests for restaurants, cafés, bars and Kneipen. There is no admin backend: the team manages everything by talking to Claude or ChatGPT, with a preview before every write.
 
-This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bundles the Tischlein MCP server (`https://tischlein.pro/mcp`) and **skills** that activate on natural phrases ("import our menu from this PDF"). The skills here are **stubs** only: description and trigger phrases. The actual playbook is served live by the server through the MCP tool `get-guidance`, so it is current after every Tischlein deploy without reinstalling the plugin.
+This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bundles the tischlein MCP server (`https://tischlein.pro/mcp`) and **skills** that activate on natural phrases ("import our menu from this PDF"). The skills here are **stubs** only: description and trigger phrases. The actual playbook is served live by the server through the MCP tool `get-guidance`, so it is current after every tischlein deploy without reinstalling the plugin.
 
-> ⚠️ **Generated.** This repository is generated from the Tischlein app (published on every merge to `main`). Manual edits are overwritten.
+> ⚠️ **Generated.** This repository is generated from the tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.80.0**
+Version: **1.82.0**
 
 ## Skills
 
@@ -41,7 +41,7 @@ Version: **1.80.0**
 | `write-job-posting` | `write-job-posting` | available |
 | `write-news-post` | `write-news-post` | available |
 
-While a playbook is not published yet, `get-guidance` answers with the milestone it comes with and what already works today; the skill says so and continues with `overview` and the general tools. For questions about how Tischlein works, `get-guidance` also searches the Tischlein documentation (`search`, `read`). Any skill can also be started explicitly, e.g. `/tischlein:import-menu-from-pdf`.
+While a playbook is not published yet, `get-guidance` answers with the milestone it comes with and what already works today; the skill says so and continues with `overview` and the general tools. For questions about how tischlein works, `get-guidance` also searches the tischlein documentation (`search`, `read`). Any skill can also be started explicitly, e.g. `/tischlein:import-menu-from-pdf`.
 
 ## Installation
 
@@ -54,7 +54,7 @@ While a playbook is not published yet, `get-guidance` answers with the milestone
 
 Alternatively via GitHub: `/plugin marketplace add tischlein-ai/tischlein-plugins`.
 
-The connector login happens in a Claude Code session: `/mcp` → **tischlein** → **Authenticate**, sign in to Tischlein in the browser and enter the 6-digit code. In chat, use a custom connector instead (see below). Claude Code also prompts on the first tool call.
+The connector login happens in a Claude Code session: `/mcp` → **tischlein** → **Authenticate**, sign in to tischlein in the browser and enter the 6-digit code. In chat, use a custom connector instead (see below). Claude Code also prompts on the first tool call.
 
 Updating: `/plugin marketplace update tischlein`, then `/plugin update tischlein@tischlein`.
 

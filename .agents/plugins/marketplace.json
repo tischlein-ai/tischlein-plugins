@@ -1,7 +1,7 @@
 {
     "name": "tischlein",
     "interface": {
-        "displayName": "Tischlein"
+        "displayName": "tischlein"
     },
     "plugins": [
         {

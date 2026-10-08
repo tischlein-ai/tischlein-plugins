@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inventory every URL of an existing website before migrating it to Tischlein.
+"""Inventory every URL of an existing website before migrating it to tischlein.
 
 Usage:
     python3 crawl-site.py https://www.example-restaurant.de [--max-pages 500] [--out urls.json] [--render]
