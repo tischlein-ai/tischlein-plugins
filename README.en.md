@@ -8,7 +8,7 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the Tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.62.0**
+Version: **1.65.0**
 
 ## Skills
 
@@ -18,6 +18,7 @@ Version: **1.62.0**
 | `answer-reviews` | `answer-reviews` | available |
 | `audit-allergens` | `audit-allergens` | available |
 | `capture-applicant` | `capture-applicant` | available |
+| `complete-impressum` | `complete-impressum` | available |
 | `daily-specials` | `daily-specials` | available |
 | `go-live` | `go-live` | available |
 | `import-menu-from-pdf` | `import-menu-from-pdf` | available |
