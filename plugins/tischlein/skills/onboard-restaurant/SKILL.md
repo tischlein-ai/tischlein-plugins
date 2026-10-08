@@ -1,6 +1,6 @@
 ---
 name: onboard-restaurant
-description: 'Set up a new venue in Tischlein: organization settings, contact details, opening hours, locations, languages, team members and a first website. Use for "Restaurant einrichten", "neues Lokal anlegen", "Tischlein einrichten", "Öffnungszeiten hinterlegen", "Team einladen", "set up my restaurant" or "get started with Tischlein".'
+description: 'Set up a new venue in Tischlein: account settings, contact details, opening hours, locations, languages, team members and a first website, also a further business (Betrieb) or legal entity (Firma) in an existing account. Use for "Restaurant einrichten", "neues Lokal anlegen", "Tischlein einrichten", "weiteren Betrieb anlegen", "zweite Firma", "Öffnungszeiten hinterlegen", "Team einladen", "set up my restaurant" or "get started with Tischlein".'
 ---
 
 Call the Tischlein MCP tool `get-guidance` with `topic: "onboard-restaurant"` and follow exactly what it returns.

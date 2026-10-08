@@ -7,13 +7,13 @@
     },
     "metadata": {
         "description": "Tischlein – Gastronomie-Websites, Speisekarten und Gästeanfragen per Sprache.",
-        "version": "1.72.0"
+        "version": "1.77.0"
     },
     "plugins": [
         {
             "name": "tischlein",
             "description": "Tischlein – Website, Speisekarte und Gästeanfragen für Restaurants, Cafés, Bars und Kneipen, gepflegt per Sprache in Claude und ChatGPT. / Website, menus and guest requests for restaurants, cafés and bars, run by talking to Claude or ChatGPT.",
-            "version": "1.72.0",
+            "version": "1.77.0",
             "source": "./plugins/tischlein",
             "category": "productivity"
         }
