@@ -1,6 +1,6 @@
 ---
 name: link-page
-description: 'Create and run the venue''s link page ("Linktree") for the Instagram/TikTok bio and the table QR code: buttons to menu, reservation, events, vouchers and contact, video header, QR code, bio links per platform and click statistics; also takes over an existing Simplefy or Linktree page. Use for "Linkseite", "Linktree", "Link in Bio", "QR-Code Seite", "Instagram Link", "Tisch-QR-Code" or "link page".'
+description: 'Create and run the venue''s link pages ("Linktree") for the Instagram/TikTok bio, the table QR code or a campaign: buttons to menu, reservation, events, vouchers and contact, video header, QR code, bio links per platform and click statistics per page; also takes over an existing Simplefy or Linktree page. Use for "Linkseite", "Linktree", "Link in Bio", "QR-Code Seite", "Instagram Link", "Tisch-QR-Code" or "link page".'
 ---
 
 Call the Tischlein MCP tool `get-guidance` with `topic: "link-page"` and follow exactly what it returns.
