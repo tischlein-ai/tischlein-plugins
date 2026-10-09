@@ -1,6 +1,6 @@
 ---
 name: migrate-website
-description: 'Migrate an existing restaurant, café or bar website to tischlein: analyse the old site, choose a 1:1 migration or a redesign, build the theme, import pages and menus, plan redirects and hand over to go-live for the domain switch. Use for "Website umziehen", "Website migrieren", "bestehende Seite übernehmen", "von WordPress/Wix zu tischlein", "migrate my website" or "move our site to tischlein".'
+description: 'tischlein team only (platform admins): build a venue''s website or move its existing restaurant, café or bar website to tischlein from the venue''s request: analyse the old site, choose a 1:1 move or a redesign, build the theme, import pages and menus, plan redirects and hand over to go-live. Venue users who want a website built or moved: request-website. Use for "Website-Anfrage umsetzen", "Umzug für <Betrieb> bauen", "build the requested website" or "run the migration".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "migrate-website"` and follow exactly what it returns.
