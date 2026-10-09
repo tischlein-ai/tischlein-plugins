@@ -1,6 +1,6 @@
 ---
 name: photo-shoot
-description: 'Turn phone photos of dishes, drinks, the room and the team into a consistent professional series on the website: enhance in one batch, before/after for approval, place them in the named blocks, end with the preview link. Also sets the Fotostil. Use for "Fotos verbessern", "Profi-Fotos", "mach die Fotos schöner", "Bilder für die Website aufhübschen", "verbessere die Fotos und bau sie ein", "Fotostil einstellen", "improve our photos" or "photo shoot".'
+description: 'Turn phone photos into a consistent professional series on the website (enhance in one batch, approve, place, preview link), set the Fotostil, edit a photo on request or create an AI image when there is no photo. Use for "Fotos verbessern", "Profi-Fotos", "mach die Fotos schöner", "Fotostil einstellen", "mach den Himmel abendlich", "entferne das Schild", "Bild mit KI erstellen", "improve our photos" or "photo shoot".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "photo-shoot"` and follow exactly what it returns.
