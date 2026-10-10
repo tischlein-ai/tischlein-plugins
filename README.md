@@ -8,7 +8,7 @@ Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein`
 
 > ⚠️ **Generiert.** Dieses Repository wird automatisch aus der tischlein-App erzeugt (veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.128.0**
+Version: **1.129.0**
 
 ## Skills
 
@@ -20,6 +20,7 @@ Version: **1.128.0**
 | `capture-applicant` | `capture-applicant` | verfügbar |
 | `complete-venue-setup` | `complete-venue-setup` | verfügbar |
 | `daily-specials` | `daily-specials` | verfügbar |
+| `dish-costing` | `dish-costing` | verfügbar |
 | `go-live` | `go-live` | verfügbar |
 | `import-menu-from-pdf` | `import-menu-from-pdf` | verfügbar |
 | `link-page` | `link-page` | verfügbar |
