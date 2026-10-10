@@ -1,6 +1,6 @@
 ---
 name: dish-costing
-description: 'Dish costing ("Kalkulation"): purchase prices from invoices and delivery notes, recipes and Grundrezepte, Wareneinsatz, food-cost % and Deckungsbeitrag per dish, price suggestions and allergen hints. Use for "Kalkulation", "Wareneinsatz", "Was kostet die Pizza?", "Welche Gerichte verdienen nichts?", "Rezept anlegen", "Preise aus der Rechnung", "dish costing" or "food cost".'
+description: 'Dish costing ("Kalkulation"): purchase prices from invoices and delivery notes, recipes and Grundrezepte, Wareneinsatz, food-cost % and Deckungsbeitrag per dish (also estimated from a dish photo or an idea), price suggestions and allergen hints. Use for "Kalkulation", "Wareneinsatz", "Was kostet die Pizza?", "Was kostet mich der Teller?", "Welche Gerichte verdienen nichts?", "Rezept anlegen", "Preise aus der Rechnung", "dish costing" or "food cost".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "dish-costing"` and follow exactly what it returns.
