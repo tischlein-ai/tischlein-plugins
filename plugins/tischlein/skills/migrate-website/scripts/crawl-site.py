@@ -24,7 +24,9 @@ Non-ASCII URLs (IRIs such as /über-uns, IDN hosts such as müller-gasthaus.de) 
 UTF-8 percent-encoding, existing %XX escapes kept). The inventory reports one readable canonical form per page
 (punycode host, "/über-uns"; "/%C3%BCber-uns" is the same page), which import-redirects accepts as `from`.
 
-Writes the inventory as JSON (url, final_url, status, content_type, title, canonical, lastmod) and a
+Writes the inventory as JSON (url, final_url, status, content_type, title, canonical, lastmod, then the SEO and
+content fields: description, h1, h1_count, lang, hreflang [{lang, url}], jsonld_types, og_image, images [{src, width,
+height, alt}], word_count, forms) and a
 sitemap.xml of the reachable HTML pages next to it (percent-encoded `<loc>`, as the sitemap protocol requires). Python 3.9+, standard library only (`--render` needs playwright
 or agent-browser).
 """
@@ -59,6 +61,10 @@ MAX_SITEMAPS = 50
 MIN_SITEMAP_URLS = 3
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 HTML_TYPES = ("text/html", "application/xhtml+xml")
+MAX_IMAGES_PER_PAGE = 100
+SKIP_TEXT_TAGS = ("script", "style", "noscript", "template", "svg")
+CHROME_TAGS = ("nav", "header", "footer")
+WORD = re.compile(r"\w+", re.UNICODE)
 
 # External targets worth migrating or linking: kind -> host fragments (matched on the host, www. stripped).
 EXTERNAL_HOSTS = {
@@ -189,36 +195,154 @@ def is_asset(url: str) -> bool:
     return urlsplit(url).path.lower().endswith(ASSET_EXTENSIONS)
 
 
+def _dimension(value: str) -> int | None:
+    """A width/height attribute as whole pixels ("800", "800px"); None when absent or relative ("100%", "auto")."""
+    match = re.fullmatch(r"\s*(\d+)(?:\.\d+)?\s*(?:px)?\s*", value or "")
+    return int(match.group(1)) if match else None
+
+
+def jsonld_types(data) -> list[str]:
+    """@type values of a JSON-LD document: top-level objects, lists and @graph members (nested values are left out)."""
+    items = data if isinstance(data, list) else [data]
+    types: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        value = item.get("@type")
+        for type_ in value if isinstance(value, list) else [value]:
+            if isinstance(type_, str) and type_ and type_ not in types:
+                types.append(type_)
+        if isinstance(item.get("@graph"), list):
+            types.extend(type_ for type_ in jsonld_types(item["@graph"]) if type_ not in types)
+    return types
+
+
+def empty_page_fields() -> dict:
+    """The SEO and content fields of a record that is no HTML page (or could not be read): appended after lastmod."""
+    return {"description": "", "h1": "", "h1_count": 0, "lang": "", "hreflang": [], "jsonld_types": [], "og_image": "", "images": [], "word_count": 0, "forms": 0}
+
+
 class PageParser(HTMLParser):
-    """Collects the title, the canonical link and every href/src of one HTML page."""
+    """Collects the title, the canonical link, every href/src and the SEO/content facts of one HTML page.
+
+    Facts: meta description, the first h1 (and how many there are), <html lang>, hreflang alternates, JSON-LD @types,
+    og:image, images (src, width/height attributes when present, alt: None when the attribute is missing, "" when
+    empty), the word count of the main text (inside <main> when the page has one, else the body without nav, header
+    and footer; scripts and styles never count) and the number of forms.
+    """
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.title = ""
         self.canonical = ""
         self.links: list[str] = []
+        self.description = ""
+        self.h1 = ""
+        self.h1_count = 0
+        self.lang = ""
+        self.hreflang: list[dict] = []
+        self.jsonld_types: list[str] = []
+        self.og_image = ""
+        self.images: list[dict] = []
+        self.forms = 0
+        self.main_words = 0
+        self.body_words = 0
+        self.has_main = False
         self._in_title = False
+        self._in_h1 = False
+        self._jsonld: str | None = None
+        self._skip = 0
+        self._chrome = 0
+        self._main = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = {name.lower(): (value or "") for name, value in attrs}
+        present = {name.lower() for name, _value in attrs}
         if tag == "title":
             self._in_title = True
-        elif tag == "link" and "canonical" in attributes.get("rel", "").lower().split():
-            self.canonical = attributes.get("href", "")
-        elif tag in ("a", "area") and attributes.get("href"):
+        elif tag == "html" and attributes.get("lang"):
+            self.lang = attributes["lang"].strip()
+        elif tag == "link":
+            rel = attributes.get("rel", "").lower().split()
+            if "canonical" in rel:
+                self.canonical = attributes.get("href", "")
+            elif "alternate" in rel and attributes.get("hreflang") and attributes.get("href"):
+                self.hreflang.append({"lang": attributes["hreflang"].strip(), "url": attributes["href"].strip()})
+        elif tag == "meta":
+            key = (attributes.get("name") or attributes.get("property") or "").lower()
+            if key == "description" and not self.description:
+                self.description = " ".join(attributes.get("content", "").split())
+            elif key in ("og:image", "og:image:url", "og:image:secure_url") and not self.og_image:
+                self.og_image = attributes.get("content", "").strip()
+        elif tag == "h1":
+            self.h1_count += 1
+            self._in_h1 = self.h1_count == 1
+        elif tag == "form":
+            self.forms += 1
+        elif tag == "script" and attributes.get("type", "").lower().strip() == "application/ld+json":
+            self._jsonld = ""
+        if tag in ("a", "area") and attributes.get("href"):
             self.links.append(attributes["href"])
         elif tag in ("img", "source", "embed", "iframe") and attributes.get("src"):
             self.links.append(attributes["src"])
         elif tag == "object" and attributes.get("data"):
             self.links.append(attributes["data"])
+        if tag == "img" and len(self.images) < MAX_IMAGES_PER_PAGE:
+            src = attributes.get("src") or attributes.get("data-src") or ""
+            if src and not src.startswith("data:"):
+                self.images.append({
+                    "src": src,
+                    "width": _dimension(attributes.get("width", "")),
+                    "height": _dimension(attributes.get("height", "")),
+                    "alt": " ".join(attributes["alt"].split()) if "alt" in present else None,
+                })
+        if tag in SKIP_TEXT_TAGS:
+            self._skip += 1
+        elif tag in CHROME_TAGS:
+            self._chrome += 1
+        elif tag == "main" or attributes.get("role", "").lower() == "main":
+            self.has_main = True
+            if tag == "main":
+                self._main += 1
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "title":
             self._in_title = False
+        elif tag == "h1":
+            self._in_h1 = False
+        elif tag == "script" and self._jsonld is not None:
+            try:
+                found = jsonld_types(json.loads(self._jsonld))
+            except ValueError:
+                found = []
+            self.jsonld_types.extend(type_ for type_ in found if type_ not in self.jsonld_types)
+            self._jsonld = None
+        if tag in SKIP_TEXT_TAGS:
+            self._skip = max(0, self._skip - 1)
+        elif tag in CHROME_TAGS:
+            self._chrome = max(0, self._chrome - 1)
+        elif tag == "main":
+            self._main = max(0, self._main - 1)
 
     def handle_data(self, data: str) -> None:
+        if self._jsonld is not None:
+            self._jsonld += data
+            return
         if self._in_title:
             self.title += data
+        if self._in_h1:
+            self.h1 += data
+        if self._skip or self._in_title:
+            return
+        words = len(WORD.findall(data))
+        if self._main:
+            self.main_words += words
+        if not self._chrome:
+            self.body_words += words
+
+    @property
+    def word_count(self) -> int:
+        return self.main_words if self.has_main and self.main_words else self.body_words
 
 
 class SitemapParser(HTMLParser):
@@ -424,6 +548,7 @@ def inspect(fetcher: Fetcher, url: str, lastmod: str = "") -> tuple[dict, list[s
         "title": "",
         "canonical": "",
         "lastmod": lastmod or last_modified(headers),
+        **empty_page_fields(),
     }
     if "error" in result:
         record["error"] = result["error"]
@@ -436,8 +561,32 @@ def inspect(fetcher: Fetcher, url: str, lastmod: str = "") -> tuple[dict, list[s
             record["canonical"] = to_iri(urljoin(result["final_url"], parser.canonical)) if parser.canonical else ""
         except ValueError:
             record["canonical"] = parser.canonical
+        record.update(page_facts(parser, result["final_url"]))
         links = [urljoin(result["final_url"], link) for link in parser.links]
     return record, links
+
+
+def _absolute(base: str, url: str) -> str:
+    try:
+        return to_iri(urljoin(base, url))
+    except ValueError:
+        return url
+
+
+def page_facts(parser: PageParser, base: str) -> dict:
+    """The SEO and content fields of a parsed HTML page, URLs made absolute (readable form, like `url`)."""
+    return {
+        "description": parser.description,
+        "h1": " ".join(parser.h1.split()),
+        "h1_count": parser.h1_count,
+        "lang": parser.lang,
+        "hreflang": [{"lang": item["lang"], "url": _absolute(base, item["url"])} for item in parser.hreflang],
+        "jsonld_types": parser.jsonld_types,
+        "og_image": _absolute(base, parser.og_image) if parser.og_image else "",
+        "images": [{**image, "src": _absolute(base, image["src"])} for image in parser.images],
+        "word_count": parser.word_count,
+        "forms": parser.forms,
+    }
 
 
 def classify_external(url: str) -> str:
@@ -583,7 +732,7 @@ def crawl(start: str, max_pages: int, fetcher: Fetcher, log=print, render: bool 
     while queue and len(records) < max_pages:
         url = queue.popleft()
         if not robots.can_fetch(fetcher.user_agent, to_uri(url)):
-            records.append({"url": url, "final_url": url, "status": None, "content_type": "", "title": "", "canonical": "", "lastmod": "", "error": "disallowed by robots.txt"})
+            records.append({"url": url, "final_url": url, "status": None, "content_type": "", "title": "", "canonical": "", "lastmod": "", **empty_page_fields(), "error": "disallowed by robots.txt"})
             continue
         record, links = inspect(fetcher, url, sitemap_pages.get(url, ""))
         records.append(record)
