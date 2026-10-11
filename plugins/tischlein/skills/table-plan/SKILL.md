@@ -1,6 +1,6 @@
 ---
 name: table-plan
-description: 'Set up and run Reservierungen & Tischplan: switch it on, build the floor plan from a description, a table list (CSV), a photo, sketch or screenshot, take over reservations from OpenTable, resmio or Quandoo, write the booking rules in plain words, block tables or rooms, seasonal layouts, and explain why a time is full. Use for "Tischplan einrichten", "Tische anlegen", "von OpenTable umsteigen", "Terrasse heute zu", "Verweildauer ändern", "warum ist Samstag ausgebucht" or "floor plan".'
+description: 'Set up and run Reservierungen & Tischplan: build the floor plan from a description, a table list (CSV), a photo, sketch or screenshot, take over reservations from OpenTable, resmio or Quandoo, booking rules in plain words, activate table booking, block tables or rooms, seasonal layouts, and explain why a time is full. Use for "Tischplan einrichten", "Tischplan aktivieren", "von OpenTable umsteigen", "Terrasse heute zu", "Verweildauer ändern", "warum ist Samstag ausgebucht" or "floor plan".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "table-plan"` and follow exactly what it returns.
