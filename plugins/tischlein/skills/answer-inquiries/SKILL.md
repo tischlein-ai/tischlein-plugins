@@ -1,6 +1,6 @@
 ---
 name: answer-inquiries
-description: 'Review open guest inquiries (table, event and catering requests), draft replies and confirm, decline or cancel them after the user approves. Use for "Anfragen beantworten", "offene Anfragen", "Reservierungsanfrage", "Feier anfragen", "Catering-Anfrage", "answer inquiries" or "reply to booking requests".'
+description: 'Review open guest inquiries (table, event and catering requests), draft replies and confirm, decline or cancel them after the user approves; book tables, walk-ins and the waitlist. Use for "Anfragen beantworten", "offene Anfragen", "Reservierungsanfrage", "Tisch reservieren", "Warteliste", "Feier anfragen", "Catering-Anfrage", "answer inquiries" or "reply to booking requests".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "answer-inquiries"` and follow exactly what it returns.
