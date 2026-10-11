@@ -1,6 +1,6 @@
 ---
 name: fixed-costs
-description: 'Fixed costs and contracts (Finanzen, pilot): capture contracts per company, read the cost report, import bank statements and decide signals (recurring payment, price change, missed payment). Deadline reminders, cancellations (mail or letter, only after an explicit yes), allocation keys across companies, venues and locations the cost-list import (Excel/CSV) and the tax advisor package (ZIP per company and period) are on; a live bank connection comes later. Use for "Fixkosten erfassen", "Vertrag anlegen", "Kontoauszug importieren", "Kündigungsfrist", "was kostet mich im Monat", "Buchhaltung" or "record a contract".'
+description: 'Fixed costs and contracts (Finanzen, pilot): capture contracts per company, read the cost report, import bank statements and decide signals, track deadlines and cancellations (only after an explicit yes), allocation keys, cost-list import, tax advisor package. Use for "Fixkosten erfassen", "Vertrag anlegen", "Kontoauszug importieren", "Kündigungsfrist", "was kostet mich im Monat", "Buchhaltung" or "record a contract".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "fixed-costs"` and follow exactly what it returns.
