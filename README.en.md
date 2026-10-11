@@ -8,7 +8,7 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.133.0**
+Version: **1.134.0**
 
 ## Skills
 
@@ -24,6 +24,7 @@ Version: **1.133.0**
 | `go-live` | `go-live` | available |
 | `import-menu-from-pdf` | `import-menu-from-pdf` | available |
 | `link-page` | `link-page` | available |
+| `mailbox` | `mailbox` | available |
 | `maintain-legal-pages` | `maintain-legal-pages` | available |
 | `measure-ads` | `measure-ads` | available |
 | `migrate-website` | `migrate-website` | available |
