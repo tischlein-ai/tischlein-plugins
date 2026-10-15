@@ -8,7 +8,7 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.161.1**
+Version: **1.162.0**
 
 ## Skills
 
@@ -42,6 +42,7 @@ Version: **1.161.1**
 | `send-feedback` | `send-feedback` | available |
 | `setup-event-location` | `setup-event-location` | available |
 | `staff-tasks` | `staff-tasks` | available |
+| `startup-discount` | `startup-discount` | available |
 | `suggest-landing-pages` | `suggest-landing-pages` | available |
 | `table-plan` | `table-plan` | available |
 | `theme-authoring` | `theme-authoring` | available |
