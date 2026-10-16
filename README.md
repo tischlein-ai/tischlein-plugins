@@ -8,7 +8,7 @@ Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein`
 
 > ⚠️ **Generiert.** Dieses Repository wird automatisch aus der tischlein-App erzeugt (veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.171.0**
+Version: **1.172.0**
 
 ## Skills
 
@@ -37,6 +37,7 @@ Version: **1.171.0**
 | `photo-shoot` | `photo-shoot` | verfügbar |
 | `plan-shifts` | `plan-shifts` | verfügbar |
 | `purchasing` | `purchasing` | verfügbar |
+| `quotes-invoices` | `quotes-invoices` | verfügbar |
 | `recipes` | `recipes` | verfügbar |
 | `request-website` | `request-website` | verfügbar |
 | `sell-vouchers-and-tickets` | `sell-vouchers-and-tickets` | verfügbar |
