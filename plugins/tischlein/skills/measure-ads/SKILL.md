@@ -1,6 +1,6 @@
 ---
 name: measure-ads
-description: 'Set up ad and analytics tracking (Google Ads conversions, Meta Pixel, Google Analytics) for a venue website with IDs, cookie banner and privacy policy included. Use for "Google Ads Tracking", "Conversion einrichten", "Meta Pixel einbauen", "Google Analytics", "Cookie-Banner", "Werbung messen" or "measure ads".'
+description: 'Connect Google Ads with one click ("Google Ads verbinden": invitation, automatic conversions, confirmed results, ads report) or set up ad and analytics tracking (Google Ads IDs, Meta Pixel, Google Analytics) with cookie banner and privacy policy. Use for "Google Ads verbinden", "Wie laufen meine Anzeigen", "Google Ads Tracking", "Conversion einrichten", "Meta Pixel einbauen", "Google Analytics", "Cookie-Banner", "Werbung messen" or "measure ads".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "measure-ads"` and follow exactly what it returns.
