@@ -8,12 +8,13 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.231.0**
+Version: **1.234.0**
 
 ## Skills
 
 | Skill | `get-guidance` topic | Server-side guidance |
 |---|---|---|
+| `academy` | `academy` | partial, rest with milestone 10 |
 | `answer-inquiries` | `answer-inquiries` | available |
 | `answer-reviews` | `answer-reviews` | available |
 | `audit-allergens` | `audit-allergens` | available |

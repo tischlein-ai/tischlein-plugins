@@ -8,12 +8,13 @@ Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein`
 
 > ⚠️ **Generiert.** Dieses Repository wird automatisch aus der tischlein-App erzeugt (veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.231.0**
+Version: **1.234.0**
 
 ## Skills
 
 | Skill | `get-guidance`-Topic | Server-Anleitung |
 |---|---|---|
+| `academy` | `academy` | teilweise, Rest mit Meilenstein 10 |
 | `answer-inquiries` | `answer-inquiries` | verfügbar |
 | `answer-reviews` | `answer-reviews` | verfügbar |
 | `audit-allergens` | `audit-allergens` | verfügbar |
