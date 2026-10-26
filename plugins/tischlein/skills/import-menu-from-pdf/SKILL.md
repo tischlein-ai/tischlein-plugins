@@ -1,6 +1,6 @@
 ---
 name: import-menu-from-pdf
-description: 'Import a menu from a PDF, photo or old web page into tischlein dishes, sections and menus, including prices, allergens and additives, with a preview before anything is saved. Use for "Speisekarte importieren", "Karte aus PDF übernehmen", "Speisekarte abtippen", "Getränkekarte hochladen", "import menu from PDF" or "upload our menu".'
+description: 'Import a menu from a PDF, photo or old web page — or build one from dishes the owner dictates or types when there is no card — into tischlein dishes, sections and menus, including prices, allergens and additives, with a preview before anything is saved. Use for "Speisekarte importieren", "Karte aus PDF übernehmen", "Speisekarte abtippen", "Getränkekarte hochladen", "ich habe keine Speisekarte", "Speisekarte diktieren", "import menu from PDF" or "upload our menu".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "import-menu-from-pdf"` and follow exactly what it returns.
