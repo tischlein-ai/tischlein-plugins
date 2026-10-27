@@ -8,7 +8,7 @@ This repository is the `tischlein` plugin marketplace. The `tischlein` plugin bu
 
 > ⚠️ **Generated.** This repository is generated from the tischlein app (published on every merge to `main`). Manual edits are overwritten.
 
-Version: **1.263.0**
+Version: **1.268.0**
 
 ## Skills
 
@@ -18,6 +18,7 @@ Version: **1.263.0**
 | `answer-inquiries` | `answer-inquiries` | available |
 | `answer-reviews` | `answer-reviews` | available |
 | `audit-allergens` | `audit-allergens` | available |
+| `book-invoices` | `book-invoices` | available |
 | `business-plan` | `business-plan` | partial, rest with milestone 10 |
 | `capture-applicant` | `capture-applicant` | available |
 | `complete-venue-setup` | `complete-venue-setup` | available |
@@ -26,6 +27,7 @@ Version: **1.263.0**
 | `fixed-costs` | `fixed-costs` | partial, rest with milestone 10 |
 | `go-live` | `go-live` | available |
 | `import-menu-from-pdf` | `import-menu-from-pdf` | available |
+| `inventory` | `inventory` | available |
 | `link-page` | `link-page` | available |
 | `mailbox` | `mailbox` | available |
 | `maintain-legal-pages` | `maintain-legal-pages` | available |
