@@ -8,7 +8,7 @@ Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein`
 
 > ⚠️ **Generiert.** Dieses Repository wird automatisch aus der tischlein-App erzeugt (veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.260.0**
+Version: **1.263.0**
 
 ## Skills
 
@@ -45,6 +45,7 @@ Version: **1.260.0**
 | `sell-vouchers-and-tickets` | `sell-vouchers-and-tickets` | verfügbar |
 | `send-feedback` | `send-feedback` | verfügbar |
 | `setup-event-location` | `setup-event-location` | verfügbar |
+| `show-rooms` | `show-rooms` | verfügbar |
 | `staff-tasks` | `staff-tasks` | verfügbar |
 | `startup-discount` | `startup-discount` | verfügbar |
 | `suggest-landing-pages` | `suggest-landing-pages` | verfügbar |
