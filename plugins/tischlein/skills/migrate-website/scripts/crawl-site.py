@@ -26,7 +26,7 @@ UTF-8 percent-encoding, existing %XX escapes kept). The inventory reports one re
 
 Writes the inventory as JSON (url, final_url, status, content_type, title, canonical, lastmod, then the SEO and
 content fields: description, h1, h1_count, lang, hreflang [{lang, url}], jsonld_types, og_image, images [{src, width,
-height, alt}], word_count, forms) and a
+height, alt}, plus {src, background: true, via} for lazy CSS background images], word_count, forms) and a
 sitemap.xml of the reachable HTML pages next to it (percent-encoded `<loc>`, as the sitemap protocol requires). Python 3.9+, standard library only (`--render` needs playwright
 or agent-browser).
 """
@@ -62,6 +62,12 @@ MIN_SITEMAP_URLS = 3
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 HTML_TYPES = ("text/html", "application/xhtml+xml")
 MAX_IMAGES_PER_PAGE = 100
+# lazy <img> sources (WordPress lazy-load plugins, Avada) and lazy CSS background images (Avada data-bg, Elementor,
+# WP Rocket data-bg/data-bg-url, generic data-background); data-src on a non-img element is a background too.
+LAZY_IMG_ATTRIBUTES = ("data-src", "data-orig-src", "data-lazy-src")
+LAZY_BG_ATTRIBUTES = ("data-bg", "data-bg-url", "data-background", "data-background-image", "data-src", "data-orig-src", "data-lazy-src")
+NOT_BACKGROUND_TAGS = ("img", "source", "iframe", "video", "audio", "script", "embed", "track")
+CSS_URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", re.I)
 SKIP_TEXT_TAGS = ("script", "style", "noscript", "template", "svg")
 CHROME_TAGS = ("nav", "header", "footer")
 WORD = re.compile(r"\w+", re.UNICODE)
@@ -227,7 +233,10 @@ class PageParser(HTMLParser):
 
     Facts: meta description, the first h1 (and how many there are), <html lang>, hreflang alternates, JSON-LD @types,
     og:image, images (src, width/height attributes when present, alt: None when the attribute is missing, "" when
-    empty), the word count of the main text (inside <main> when the page has one, else the body without nav, header
+    empty; lazy-loaded <img> sources such as data-src, data-orig-src and data-lazy-src count too), lazy CSS background
+    images (Avada/Elementor/WP Rocket data-bg, data-bg-url, data-background, data-src on non-img elements, inline
+    style background(-image): url(...)) as {src, background: true, via: <attribute>}: page-header and card photos often
+    exist only there, the word count of the main text (inside <main> when the page has one, else the body without nav, header
     and footer; scripts and styles never count) and the number of forms.
     """
 
@@ -287,8 +296,12 @@ class PageParser(HTMLParser):
             self.links.append(attributes["src"])
         elif tag == "object" and attributes.get("data"):
             self.links.append(attributes["data"])
+        if tag not in NOT_BACKGROUND_TAGS:
+            self._background_images(attributes)
         if tag == "img" and len(self.images) < MAX_IMAGES_PER_PAGE:
-            src = attributes.get("src") or attributes.get("data-src") or ""
+            src = attributes.get("src") or ""
+            if not src or src.startswith("data:"):
+                src = next((attributes[name] for name in LAZY_IMG_ATTRIBUTES if attributes.get(name) and not attributes[name].startswith("data:")), src)
             if src and not src.startswith("data:"):
                 self.images.append({
                     "src": src,
@@ -304,6 +317,26 @@ class PageParser(HTMLParser):
             self.has_main = True
             if tag == "main":
                 self._main += 1
+
+    def _background_images(self, attributes: dict[str, str]) -> None:
+        """Lazy CSS background images of one element: data-bg (and friends) and inline background(-image): url()."""
+        found: list[tuple[str, str]] = []
+        for name in LAZY_BG_ATTRIBUTES:
+            value = attributes.get(name, "").strip()
+            if value:
+                urls = [match[1] for match in CSS_URL.findall(value)] or [value]
+                found.extend((url, name) for url in urls)
+        style = attributes.get("style", "")
+        if "background" in style.lower():
+            found.extend((match[1], "style") for match in CSS_URL.findall(style))
+        for raw, via in found:
+            src = raw.strip().strip("'\"").strip()
+            if not src or src.startswith(("data:", "#", "var(")) or len(self.images) >= MAX_IMAGES_PER_PAGE:
+                continue
+            if any(image["src"] == src for image in self.images):
+                continue
+            self.links.append(src)
+            self.images.append({"src": src, "width": None, "height": None, "alt": None, "background": True, "via": via})
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "title":
