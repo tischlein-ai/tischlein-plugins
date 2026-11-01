@@ -8,7 +8,7 @@ Dieses Repository ist der Plugin-Marketplace `tischlein`. Das Plugin `tischlein`
 
 > ⚠️ **Generiert.** Dieses Repository wird automatisch aus der tischlein-App erzeugt (veröffentlicht bei jedem Merge auf `main`). Manuelle Änderungen werden überschrieben.
 
-Version: **1.291.0**
+Version: **1.292.0**
 
 ## Skills
 
@@ -21,6 +21,7 @@ Version: **1.291.0**
 | `book-invoices` | `book-invoices` | verfügbar |
 | `business-plan` | `business-plan` | teilweise, Rest mit Meilenstein 10 |
 | `capture-applicant` | `capture-applicant` | verfügbar |
+| `clean-up-data` | `clean-up-data` | verfügbar |
 | `complete-venue-setup` | `complete-venue-setup` | verfügbar |
 | `daily-specials` | `daily-specials` | verfügbar |
 | `dish-costing` | `dish-costing` | verfügbar |
