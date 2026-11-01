@@ -1,6 +1,6 @@
 ---
 name: book-invoices
-description: 'Book supplier invoices and hand them to the tax advisor (Warenwirtschaft): supplier, service period (Leistungszeitraum), matching with delivery notes, price differences, credit notes, due payments and Skonto, the DATEV Buchungsstapel with the documents. Use for "Rechnung verbuchen", "Eingangsrechnung buchen", "Rechnung mit Lieferschein abgleichen", "Was ist diese Woche fällig?", "Positionen zuordnen", "Rechnung als bezahlt markieren", "Dienstleister", "Skonto", "Gutschrift", "DATEV-Export", "Steuerberater Oktober", "Kontenrahmen" or "book supplier invoice".'
+description: 'Book supplier invoices and hand them to the tax advisor (Warenwirtschaft): supplier, Leistungszeitraum, matching with delivery notes, price differences, credit notes, due payments and Skonto, the DATEV Buchungsstapel with the documents. Use for "Rechnung verbuchen", "Eingangsrechnung buchen", "Rechnung mit Lieferschein abgleichen", "Was ist diese Woche fällig?", "Positionen zuordnen", "Rechnung als bezahlt markieren", "Skonto", "Gutschrift", "DATEV-Export" or "book supplier invoice".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "book-invoices"` and follow exactly what it returns.
