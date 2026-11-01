@@ -1,6 +1,6 @@
 ---
 name: real-estate
-description: 'Property listings for real-estate agents (Makler): create a listing (Exposé) from a PDF, photos or the old web page, energy certificate (GEG §87), preview and publish it, mark it reserved, sold or rented (reference), off-market listings, the properties and references blocks, and answer property inquiries (Exposé anfordern, Besichtigung). Use for "Objekt anlegen", "neues Exposé", "Immobilie einstellen", "Wohnung verkauft", "als Referenz", "Off-Market-Liste", "Besichtigungsanfrage", "property listing" or "mark as sold".'
+description: 'Property listings for real-estate agents (Makler): create a listing (Exposé) from a PDF, photos or a web page, energy certificate (GEG §87), preview and publish, mark reserved, sold or rented, off-market listings, the properties and references blocks, answer property inquiries (Exposé anfordern, Besichtigung). Use for "Objekt anlegen", "neues Exposé", "Immobilie einstellen", "Wohnung verkauft", "als Referenz", "Off-Market-Liste", "Besichtigungsanfrage", "property listing" or "mark as sold".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "real-estate"` and follow exactly what it returns.
