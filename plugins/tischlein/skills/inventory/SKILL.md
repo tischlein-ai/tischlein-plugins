@@ -1,6 +1,6 @@
 ---
 name: inventory
-description: 'Stock keeping in the Warenwirtschaft: correct the stock of one article ("Tomaten 4 kg", "2 Flaschen Gin kaputt", "Personalessen: 3 Schnitzel"), count the whole store room with the guided Inventur (blind, offline, several people), print the Inventurliste, transfer stock between locations. Use for "Bestand korrigieren", "Tomaten 4 kg", "Inventur", "Lager zählen", "Inventurliste", "Schwund", "Bruch", "Personalessen", "umlagern", "stock take" or "correct stock".'
+description: 'Stock keeping: correct one article ("Tomaten 4 kg", "2 Flaschen Gin kaputt", "Personalessen: 3 Schnitzel"), the guided Inventur (blind, offline, several people), Inventurliste, transfers between locations, production of a Grundrezept. Use for "Bestand korrigieren", "Inventur", "Lager zählen", "Inventurliste", "Schwund", "Bruch", "Personalessen", "umlagern", "Sauce gemacht", "Produktion buchen", "stock take" or "correct stock".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "inventory"` and follow exactly what it returns.
