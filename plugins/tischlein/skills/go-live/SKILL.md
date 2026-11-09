@@ -1,6 +1,6 @@
 ---
 name: go-live
-description: 'Take a finished tischlein website live: final readiness check, set the website live, connect the own domain, switch DNS, verify SSL and every redirect, compare PageSpeed and review 404s after launch. Use for "Website live schalten", "Domain verbinden", "DNS umstellen", "eigene Domain", "Seite veröffentlichen", "go live", "connect my domain" or "launch the website".'
+description: 'Take a finished tischlein website online (go live): readiness check (legal data, newsletter state), set live, connect the own domain, switch DNS, verify SSL and redirects, review 404s after launch. Use for "online gehen", "live gehen", "Website online stellen", "was müssen wir tun um online zu gehen", "Website live schalten", "Domain verbinden", "DNS umstellen", "eigene Domain", "Seite veröffentlichen", "go live", "connect my domain" or "launch the website".'
 ---
 
 Call the tischlein MCP tool `get-guidance` with `topic: "go-live"` and follow exactly what it returns.
